@@ -1,0 +1,1 @@
+void log_action(const char *hunt_id, const char *format, ...);

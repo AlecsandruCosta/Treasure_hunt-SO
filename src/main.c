@@ -1,22 +1,20 @@
 #include <stdio.h>
 #include <string.h>
 #include "../include/treasure_manager.h"
+#include "../include/log_operations.h"
+
 
 int main(){
 
-    Treasure t1;
-    t1.id = 1;
-    strcpy(t1.username, "treasure_hunter");
-    t1.latitude = 34.0522;
-    t1.longitude = -118.2437;
-    t1.value = 1000;
+    Treasure treasure = {1, "user123", 37.7749, -122.4194, "Find the hidden treasure!", 1000};
 
-    printf("Treasure ID: %d\n", t1.id);
-    printf("Treasure Username: %s\n", t1.username);
-    printf("Treasure Latitude: %.4f\n", t1.latitude);
-    printf("Treasure Longitude: %.4f\n", t1.longitude);
-    printf("Treasure Value: %d\n", t1.value);
+    if(write_treasure("hunt1", &treasure) == 0) {
+        printf("Treasure added successfully.\n");
+    } else {
+        printf("Failed to add treasure.\n");
+    }
+   
 
-
+    
     return 0;
 }
