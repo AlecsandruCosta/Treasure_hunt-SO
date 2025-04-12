@@ -13,3 +13,4 @@ int write_treasure(const char *hunt_id, Treasure *treasure);
 void read_treasure(const char *hunt_id);
 int view_treasure(const char *hunt_id, int id);
 int remove_treasure(const char *hunt_id, int treasure_id);
+int remove_hunt(const char *hunt_id);

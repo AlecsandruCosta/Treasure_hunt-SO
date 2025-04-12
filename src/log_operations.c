@@ -5,36 +5,48 @@
 #include <unistd.h>
 #include <stdarg.h> // for va_list, va_start, va_end
 #include <string.h>
-#include <limits.h> // for PATH_MAX
+#define PATH_MAX 4096
 
 #define LOG_FILE "logged_hunt"
 
+
+// Ensure symlink is always created in project root, not in /src
 void create_symlink(const char *hunt_id) {
-    // Create a symbolic link to the hunt directory
-    char target[512], linkname[512];
-    const char *project_root = "/home/debian/treasure_hunt_project"; // Explicitly set the root directory
+    char cwd[PATH_MAX];
+    char root_path[PATH_MAX] = "~/treasure_hunt_project/"; // Default root path
+    char target[PATH_MAX];
+    char link_path[PATH_MAX];
 
-    // Path to the actual log file (inside the hunt directory)
-    int target_len = snprintf(target, sizeof(target), "%s/hunts/%s/logged_hunt", project_root, hunt_id);
-    if (target_len < 0 || target_len >= sizeof(target)) {
-        fprintf(stderr, "Error: target path is too long\n");
+    // Get current working directory
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        perror("getcwd failed");
         return;
     }
 
-    // Path to the symbolic link (in the root folder)
-    int linkname_len = snprintf(linkname, sizeof(linkname), "%s/logged_hunt-/%s", project_root, hunt_id);
-    if (linkname_len < 0 || linkname_len >= sizeof(linkname)) {
-        fprintf(stderr, "Error: linkname path is too long\n");
-        return;
+    // Go one level up if inside /src
+    strcpy(root_path, cwd);
+    if (strstr(cwd, "/src") != NULL) {
+        char *src_position = strstr(root_path, "/src");
+        if (src_position) *src_position = '\0'; // trim everything after "/src"
     }
 
-    unlink(linkname); // Remove existing symlink if it exists
+    // Build the absolute target path and the symlink path
+    #pragma GCC diagnostic push //
+    #pragma GCC diagnostic ignored "-Wformat-truncation" // Ignore truncation warning, as root_path sould not realistically exceed PATH_MAX
+    snprintf(target, sizeof(target), "%s/src/hunts/%s/logged_hunt", root_path, hunt_id);
+    snprintf(link_path, sizeof(link_path), "%s/logged_hunt-%s", root_path, hunt_id);
+    #pragma GCC diagnostic pop 
 
-    // Create the symbolic link
-    if (symlink(target, linkname) == -1) {
+    printf("\n🔗 Attempting to create symlink:\n");
+    printf("    Link:   %s\n", link_path);
+    printf("    Target: %s\n", target);
+
+    // Remove old symlink if it exists
+    unlink(link_path);
+
+    // Create the symlink
+    if (symlink(target, link_path) == -1) {
         perror("Error creating symbolic link");
-    } else {
-        printf("Symbolic link created: %s -> %s\n", linkname, target);
     }
 }
 
@@ -43,6 +55,8 @@ void log_action(const char *hunt_id, const char *format, ...) {
     // Open the log file for appending
     char filepath[256];
     snprintf(filepath, sizeof(filepath), "hunts/%s/%s", hunt_id, LOG_FILE);
+
+    
     
     int fd = open(filepath, O_CREAT | O_WRONLY | O_APPEND, 0644);
     if (fd == -1) {
@@ -70,5 +84,12 @@ void log_action(const char *hunt_id, const char *format, ...) {
     //write(fd, "\n", 1);
     dprintf(fd, "\n");
 
+    // Force flush to disk; this is to make sure that the log is written immediately so that the symlink can be created
+    if (fsync(fd) == -1) {
+        perror("fsync failed");
+    }
+
     close(fd);
+
+    create_symlink(hunt_id);
 }

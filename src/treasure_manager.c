@@ -5,6 +5,7 @@
 #include <unistd.h> //for functions read, write
 #include <sys/stat.h> //for function fstat
 #include <string.h>
+#include <dirent.h> //for working with directories
 #define FILE_PERMISSIONS 0644
 
 void ensure_directory_exists(const char *hunt_id) {
@@ -162,13 +163,65 @@ int remove_treasure(const char *hunt_id, int treassure_id){
     return 0;
 }
 
-int remove_hunt(const char *hunt_id){
-    char filepath[256];
-    snprintf(filepath, sizeof(filepath), "hunts/%s", hunt_id);
-    if (rmdir(filepath) == -1) {
-        perror("Error removing hunt directory");
+int remove_directory(const char *path) {
+    struct dirent *entry;
+    DIR *dir = opendir(path);
+
+    if (dir == NULL) {
+        perror("Error opening directory");
         return -1;
     }
+
+    char filepath[512];
+    struct stat statbuf;
+
+    while ((entry = readdir(dir)) != NULL) {
+        // Skip "." and ".."
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        snprintf(filepath, sizeof(filepath), "%s/%s", path, entry->d_name);
+
+        if (stat(filepath, &statbuf) == 0) {
+            if (S_ISDIR(statbuf.st_mode)) {
+                // Recursively remove subdirectory
+                if (remove_directory(filepath) == -1) {
+                    closedir(dir);
+                    return -1;
+                }
+            } else {
+                // Remove file
+                if (remove(filepath) == -1) {
+                    perror("Error removing file");
+                    closedir(dir);
+                    return -1;
+                }
+            }
+        }
+    }
+
+    closedir(dir);
+
+    // Remove the directory itself
+    if (rmdir(path) == -1) {
+        perror("Error removing directory");
+        return -1;
+    }
+
+    return 0;
+}
+
+int remove_hunt(const char *hunt_id) {
+    char hunt_path[256];
+    snprintf(hunt_path, sizeof(hunt_path), "hunts/%s", hunt_id);
+
+    // Recursively remove the hunt directory
+    if (remove_directory(hunt_path) == -1) {
+        fprintf(stderr, "Failed to remove hunt: %s\n", hunt_id);
+        return -1;
+    }
+
     log_action(hunt_id, "Removed hunt %s", hunt_id);
     return 0;
 }

@@ -100,6 +100,9 @@ int main(int argc, char *argv[]) {
         printf("Enter Treasure Value: ");
         scanf("%d", &t.value);
 
+        //create_symlink(hunt_id); // temporary debug call
+
+
         // Add the treasure to the specified hunt
         if (write_treasure(hunt_id, &t) == 0) {
             printf("\nTreasure added successfully!\n");
