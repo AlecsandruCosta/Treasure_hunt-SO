@@ -5,71 +5,12 @@
 
 void print_usage(){
     printf("Usage:\n");
-    printf("./treasure_hunt add <hunt_id>\n");
-    printf("./treasure_hunt list <hunt_id>\n");
-    printf("./treasure_hunt view <hunt_id> <treasure_id>\n");
-    printf("./treasure_hunt remove_treasure <hunt_id> <treasure_id>\n");
-    printf("./treasure_hunt remove_hunt <hunt_id>\n");
+    printf("./treasure_manager add <hunt_id>\n");
+    printf("./treasure_manager list <hunt_id>\n");
+    printf("./treasure_manager view <hunt_id> <treasure_id>\n");
+    printf("./treasure_manager remove_treasure <hunt_id> <treasure_id>\n");
+    printf("./treasure_manager remove_hunt <hunt_id>\n");
 }
-/*
-int main() {
-    char hunt_id[50];
-    Treasure t;
-
-    printf("Enter hunt name (ID): ");
-    scanf("%49s", hunt_id);
-
-    printf("\n--- Adding a Treasure ---\n");
-    printf("Enter Treasure ID: ");
-    scanf("%d", &t.id);
-    
-    printf("Enter Username: ");
-    scanf("%49s", t.username);
-
-    printf("Enter Latitude: ");
-    scanf("%f", &t.latitude);
-
-    printf("Enter Longitude: ");
-    scanf("%f", &t.longitude);
-
-    printf("Enter Clue: ");
-    scanf(" %[^\n]", t.clue); // Read full line after whitespace
-
-    printf("Enter Treasure Value: ");
-    scanf("%d", &t.value);
-
-    // Add the treasure to the specified hunt
-    if (write_treasure(hunt_id, &t) == 0) {
-        printf("\nTreasure added successfully!\n");
-    } else {
-        printf("\nFailed to add treasure.\n"); 
-    }
-
-    // List all treasures in this hunt
-    printf("\n--- Treasures in %s ---\n", hunt_id);
-    read_treasure(hunt_id);
-    
-    printf("\nViewing a Treasure in Hunt %s\n", hunt_id);
-    printf("Enter Treasure ID to view: ");
-    int treasure_id;
-    scanf("%d", &treasure_id);
-    view_treasure(hunt_id, treasure_id);
-
-    printf("\n--- Removing a Treasure ---\n");
-    printf("Enter Treasure ID to remove: ");
-    scanf("%d", &treasure_id);
-    if (remove_treasure(hunt_id, treasure_id) == 0) {
-        printf("Treasure removed successfully!\n");
-    } else {
-        printf("Failed to remove treasure.\n");
-    }
-    //check if the treasure was removed
-    printf("\n--- Treasures in %s after removal ---\n", hunt_id);
-    read_treasure(hunt_id);
-
-    return 0;
-}
-    */
 
 int main(int argc, char *argv[]) {
     if (argc < 3) {
@@ -99,8 +40,6 @@ int main(int argc, char *argv[]) {
 
         printf("Enter Treasure Value: ");
         scanf("%d", &t.value);
-
-        //create_symlink(hunt_id); // temporary debug call
 
 
         // Add the treasure to the specified hunt

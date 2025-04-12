@@ -216,6 +216,9 @@ int remove_hunt(const char *hunt_id) {
     char hunt_path[256];
     snprintf(hunt_path, sizeof(hunt_path), "hunts/%s", hunt_id);
 
+    // Remove the symlink associated with the hunt
+    remove_symlink(hunt_id);
+
     // Recursively remove the hunt directory
     if (remove_directory(hunt_path) == -1) {
         fprintf(stderr, "Failed to remove hunt: %s\n", hunt_id);

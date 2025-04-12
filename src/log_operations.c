@@ -33,11 +33,12 @@ void create_symlink(const char *hunt_id) {
     // Build the absolute target path and the symlink path
     #pragma GCC diagnostic push //
     #pragma GCC diagnostic ignored "-Wformat-truncation" // Ignore truncation warning, as root_path sould not realistically exceed PATH_MAX
-    snprintf(target, sizeof(target), "%s/src/hunts/%s/logged_hunt", root_path, hunt_id);
+    //snprintf(target, sizeof(target), "%s/src/hunts/%s/logged_hunt", root_path, hunt_id);
+    snprintf(target, sizeof(target), "%s/hunts/%s/logged_hunt", root_path, hunt_id);
     snprintf(link_path, sizeof(link_path), "%s/logged_hunt-%s", root_path, hunt_id);
     #pragma GCC diagnostic pop 
 
-    printf("\n🔗 Attempting to create symlink:\n");
+    printf("\n Attempting to create symlink:\n");
     printf("    Link:   %s\n", link_path);
     printf("    Target: %s\n", target);
 
@@ -47,6 +48,21 @@ void create_symlink(const char *hunt_id) {
     // Create the symlink
     if (symlink(target, link_path) == -1) {
         perror("Error creating symbolic link");
+    }
+}
+
+void remove_symlink(const char *hunt_id) {
+    char link_path[PATH_MAX];
+    const char *root_path = "/home/debian/treasure_hunt_project"; // Root folder path
+
+    // Build the symlink path
+    snprintf(link_path, sizeof(link_path), "%s/logged_hunt-%s", root_path, hunt_id);
+
+    // Remove the symlink
+    if (unlink(link_path) == -1) {
+        perror("Error removing symbolic link");
+    } else {
+        printf("Symbolic link %s removed successfully.\n", link_path);
     }
 }
 
