@@ -8,17 +8,27 @@
 #define FILE_PERMISSIONS 0644
 
 void ensure_directory_exists(const char *hunt_id) {
-    
+
+    // Check if the "hunts/" directory exists
+    struct stat st;
+    if(stat("hunts", &st) == -1) {
+        if (mkdir("hunts", 0777) == -1) {
+            perror("Error creating hunts directory");
+            return;
+        }
+    }
+
+    // Create the specific hunt directory 
     char dirpath[256];
     snprintf(dirpath, sizeof(dirpath), "hunts/%s", hunt_id);
 
-    // Check if the directory exists
-    struct stat st;
     if (stat(dirpath, &st) == -1) {
         if (mkdir(dirpath, 0777) == -1) {
             perror("Error creating directory");
+        } else {
+            printf("Directory %s created successfully.\n", dirpath);
         }
-    }
+    } 
 }
 
 
@@ -28,7 +38,7 @@ int open_treasure_file(const char *hunt_id, int flags) {
 
     // Construct the file path
     char filename[256];
-    snprintf(filename, sizeof(filename), "hunt/%s/_treasure.dat", hunt_id);
+    snprintf(filename, sizeof(filename), "hunts/%s/_treasure.dat", hunt_id);
 
     // Check if the file exists
     int fd = open(filename, flags, FILE_PERMISSIONS);  
@@ -115,10 +125,10 @@ int remove_treasure(const char *hunt_id, int treassure_id){
         return -1;
     }
 
-    int temp_fd = open(temp_filepath, O_WRONLY | O_CREAT | O_TRUNC, FILE_PERMISSIONS);
+    int temp_fd = open(temp_filepath, O_CREAT | O_WRONLY | O_TRUNC, FILE_PERMISSIONS);
     if (temp_fd == -1) {
-        perror("Error creating temporary file");
         close(fd);
+        perror("Error creating temporary file");
         return -1;
     }
 
@@ -130,9 +140,7 @@ int remove_treasure(const char *hunt_id, int treassure_id){
             found = 1;
             continue; // Skip writing this treasure to the temp file
         }
-        else {
-            write(temp_fd, &treasure, sizeof(Treasure));
-        }
+        write(temp_fd, &treasure, sizeof(Treasure));
     }
 
     close(fd);
@@ -146,9 +154,21 @@ int remove_treasure(const char *hunt_id, int treassure_id){
     // Replace the original file with the temporary file
     if (remove(filepath) == -1) {
         perror("Error removing original treasure file");
-        remove(temp_filepath); // Remove the temporary file
         return -1;
     }
+    rename(temp_filepath, filepath); // Rename temp file to original file
+    
     log_action(hunt_id, "Removed treasure ID %d", treassure_id);
+    return 0;
+}
+
+int remove_hunt(const char *hunt_id){
+    char filepath[256];
+    snprintf(filepath, sizeof(filepath), "hunts/%s", hunt_id);
+    if (rmdir(filepath) == -1) {
+        perror("Error removing hunt directory");
+        return -1;
+    }
+    log_action(hunt_id, "Removed hunt %s", hunt_id);
     return 0;
 }
