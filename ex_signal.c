@@ -12,7 +12,7 @@ int n = 0;
 //a simple example of the fork() function
 int main(int argc, char *args[]) {
     int status;
-    char *args[3];
+    //char *args[3];
     char action = args[1];
 
     child_pid = fork();
