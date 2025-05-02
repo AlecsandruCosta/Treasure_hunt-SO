@@ -2,8 +2,14 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
 
 #define MAX_INPUT 256
+
+int monitor_pid = -1;
 
 int main() {
     char input[MAX_INPUT];
@@ -26,31 +32,40 @@ int main() {
 
         // Handle commands
         if (strcmp(input, "start_monitor") == 0) {
-            if (monitor_running) {
-                printf("Monitor is already running.\n");
+            if (monitor_pid > 0) {
+                printf("\nMonitor is already running (PID %d).\n", monitor_pid);
             } else {
-                printf("Starting monitor... [dummy response]\n");
-                monitor_running = true;
+                pid_t pid = fork();
+                if(pid < 0) {
+                    perror("Fork failed");
+                }else if(pid == 0) {
+                    
+                    // Child process: monitor
+                    printf("[Monitor process running with PID %d]\n", getpid());
+                    while(1){
+                        pause();
+                    }
+                    exit(0);              
+                }
+                else {
+                    // Parent (hub)
+                    monitor_pid = pid;
+                    printf("\nMonitor started with PID %d.\n", monitor_pid);
+                }
             }
-        }
-        else if (strcmp(input, "list_hunts") == 0) {
-            printf("List hunts... [dummy response]\n");
-        }
-        else if (strcmp(input, "list_treasures") == 0) {
-            printf("List treasures... [dummy response]\n");
-        }
-        else if (strcmp(input, "view_treasure") == 0) {
-            printf("View treasure... [dummy response]\n");
-        }
-        else if (strcmp(input, "stop_monitor") == 0) {
-            if (!monitor_running) {
+
+        }else if (strcmp(input, "stop_monitor") == 0) {
+            if(monitor_pid <= 0){
                 printf("Monitor is not running.\n");
-            } else {
-                printf("Stopping monitor... [dummy response]\n");
-                monitor_running = false;
+            }else{
+                printf("\nStopping monitor with PID %d...\n", monitor_pid);
+                kill(monitor_pid, SIGTERM);
+                waitpid(monitor_pid, NULL, 0);
+                monitor_pid = -1;
+                printf("Monitor stopped.\n");
             }
-        }
-        else if (strcmp(input, "exit") == 0) {
+
+        }else if (strcmp(input, "exit") == 0) {
             if (monitor_running) {
                 printf(" Cannot exit: monitor is still running.\n");
             } else {
