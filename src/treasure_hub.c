@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #define _DEFAULT_SOURCE
+#include "../include/treasure_manager.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -50,7 +51,34 @@ void handle_list_treasure(int sig) {
     if(fgets(hunt_id, sizeof(hunt_id), file)){
         hunt_id[strcspn(hunt_id, "\n")] = '\0'; // trim newline
         printf("Hunt ID: %s\n", hunt_id);
-        //TODO: call read_treasure(hunt_id);
+
+        // Call the function to read treasure
+        read_treasure(hunt_id);
+
+    }else{
+        printf("No hunt_id found in file.\n");
+    }
+    fclose(file);
+}
+
+void handle_view_treasure(int sig) {
+    printf("[Monitor] Handling view_treasure...\n");
+
+    FILE *file = fopen(PARAM_FILE, "r");
+    if(!file) {
+        perror("Failed to open parameter file");
+        return;
+    }
+
+    char hunt_id[256];
+    if(fgets(hunt_id, sizeof(hunt_id), file)){
+        hunt_id[strcspn(hunt_id, "\n")] = '\0'; // trim newline
+        printf("Hunt ID: %s\n", hunt_id);
+
+        // Call the function to view treasure
+        int id = 1; // Example treasure ID
+        view_treasure(hunt_id, id);
+
     }else{
         printf("No hunt_id found in file.\n");
     }
@@ -60,6 +88,8 @@ void handle_list_treasure(int sig) {
 // Function to handle SIGUSR1 signal
 void handle_sigterm(int sig) {
     printf("[Monitor] Terminating...\n");
+    sleep(5);
+    printf("[Monitor] Terminated.\n");
     exit(0);
 }
 
@@ -76,6 +106,13 @@ void start_monitor_loop() {
     sigemptyset(&sa2.sa_mask);
     sa2.sa_flags = 0;
     sigaction(SIGUSR2, &sa2, NULL);
+    
+    /*
+    sa3.sa_handler = handle_view_treasure;
+    sigemptyset(&sa3.sa_mask);
+    sa3.sa_flags = 0;
+    sigaction(SIGUSR3, &sa3, NULL);
+    */
 
     sa_term.sa_handler = handle_sigterm;
     sigemptyset(&sa_term.sa_mask);
@@ -96,6 +133,7 @@ int main() {
     bool monitor_running = false;
 
     printf(" Welcome to Treasure Hub \n");
+    printf(" Type 'help' for a list of commands.\n");
 
     while (1) {
         printf("treasure_hub> ");
@@ -145,8 +183,8 @@ int main() {
                 printf("Monitor is not running.\n");
             }
         }
-
-        else if (strcmp(input, "list_treasure") == 0) {
+        /*
+        else if (strcmp(input, "list_treasures") == 0) {
             if(monitor_pid > 0){
                 char hunt_id[256];
                 printf("Enter hunt ID: ");
@@ -159,6 +197,15 @@ int main() {
                     fclose(file);
                 }
 
+                kill(monitor_pid, SIGUSR2);
+            }else{
+                printf("Monitor is not running.\n");
+            }
+        }
+        */
+        
+        else if(strcmp(input, "list_treasures") == 0) {
+            if(monitor_pid > 0){
                 kill(monitor_pid, SIGUSR2);
             }else{
                 printf("Monitor is not running.\n");
@@ -184,6 +231,15 @@ int main() {
                 printf("Exiting... Goodbye!\n");
                 break;
             }
+        }
+
+        else if (strcmp(input, "help") == 0) {
+            printf("Available commands:\n");
+            printf(" start_monitor - Start the monitor process\n");
+            printf(" stop_monitor - Stop the monitor process\n");
+            printf(" list_hunts - List all hunts\n");
+            printf(" list_treasures - List all treasures in a hunt\n");
+            printf(" exit - Exit the program\n");
         }
 
         else {
