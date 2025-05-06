@@ -11,19 +11,39 @@
 #include <signal.h>
 #include <dirent.h>
 
+#define COLOR_RED     "\x1b[31m"
+#define COLOR_GREEN   "\x1b[32m"
+#define COLOR_YELLOW  "\x1b[33m"
+#define COLOR_BLUE    "\x1b[34m"
+#define COLOR_MAGENTA "\x1b[35m"
+#define COLOR_CYAN    "\x1b[36m"
+#define COLOR_RESET   "\x1b[0m"
+
 #define MAX_INPUT_SIZE 256
 #define PARAM_FILE "monitor_command.txt"
 
 int monitor_pid = -1;
 
+void print_hub_banner() {
+    printf("\n");
+    printf(COLOR_YELLOW);
+    printf("████████ ██████  ███████  █████  ███████ ██    ██ ██████  ███████     ██   ██ ██    ██ ██████ \n");
+    printf("   ██    ██   ██ ██      ██   ██ ██      ██    ██ ██   ██ ██          ██   ██ ██    ██ ██   ██ \n");
+    printf("   ██    ██████  █████   ███████ ███████ ██    ██ ██████  █████       ███████ ██    ██ ██████  \n");
+    printf("   ██    ██   ██ ██      ██   ██      ██ ██    ██ ██   ██ ██          ██   ██ ██    ██ ██   ██ \n");
+    printf("   ██    ██   ██ ███████ ██   ██ ███████  ██████  ██   ██ ███████     ██   ██  ██████  ██████  \n");
+    printf("\n");
+    printf(COLOR_RESET);
+}                                                                                               
+
 //Signal handlers
 void handle_list_hunts(int sig) {
-    printf("[Monitor] Handling list_hunts...\n");
+    printf("Listing hunts...\n");
 
     DIR *dir = opendir("hunts");
 
     if(!dir) {
-        perror("Failed to open hunts directory");
+        perror(COLOR_RED "Failed to open hunts directory" COLOR_RESET);
         return;
     }
 
@@ -32,18 +52,21 @@ void handle_list_hunts(int sig) {
         if(entry->d_type == DT_DIR &&
            strcmp(entry->d_name, ".") != 0 &&
            strcmp(entry->d_name, "..") != 0) {
-            printf(" Found hunt: %s\n", entry->d_name);
+            printf(" Found hunt: " COLOR_YELLOW "%s\n" COLOR_RESET, entry->d_name);
         }
     }
     closedir(dir);
+
+    // Flush the output to ensure the prompt appears correctly
+    fflush(stdout);
 }
 
 void handle_list_treasure(int sig) {
-    printf("[Monitor] Handling list_treasure...\n");
+    printf("Listing treasures...\n");
 
     FILE *file = fopen(PARAM_FILE, "r");
     if(!file) {
-        perror("Failed to open parameter file");
+        perror(COLOR_RED "Failed to open parameter file" COLOR_RESET);
         return;
     }
 
@@ -56,17 +79,17 @@ void handle_list_treasure(int sig) {
         read_treasure(hunt_id);
 
     }else{
-        printf("No hunt_id found in file.\n");
+        printf(COLOR_RED "No hunt_id found in file.\n" COLOR_RESET);
     }
     fclose(file);
 }
 
 void handle_view_treasure(int sig) {
-    printf("[Monitor] Handling view_treasure...\n");
+    printf("Viewing treasures...\n");
 
     FILE *file = fopen(PARAM_FILE, "r");
     if(!file) {
-        perror("Failed to open parameter file");
+        perror(COLOR_RED "Failed to open parameter file" COLOR_RESET);
         return;
     }
 
@@ -84,16 +107,16 @@ void handle_view_treasure(int sig) {
         view_treasure(hunt_id, id);
 
     }else{
-        printf("Invalid format in monitor_command.txt.\n");
+        printf(COLOR_RED "Invalid format in monitor_command.txt.\n" COLOR_RESET);
     }
     fclose(file);
 }
 
 // Function to handle SIGUSR1 signal
 void handle_sigterm(int sig) {
-    printf("[Monitor] Terminating...\n");
+    printf("Terminating...\n");
     sleep(5);
-    printf("[Monitor] Terminated.\n");
+    printf("Terminated.\n");
     exit(0);
 }
 
@@ -121,7 +144,7 @@ void start_monitor_loop() {
     sa_term.sa_flags = 0;
     sigaction(SIGTERM, &sa_term, NULL);
 
-    printf("[Monitor] Ready and waiting for signals (PID: %d)\n", getpid());
+    //printf("[Monitor] Ready and waiting for signals (PID: %d)\n", getpid());
 
     while (1) {
         pause(); // Wait for signals
@@ -134,16 +157,17 @@ int main() {
     char input[MAX_INPUT_SIZE];
     bool monitor_running = false;
 
-    printf(" Welcome to Treasure Hub \n");
+    //printf(" Welcome to Treasure Hub \n");
+    print_hub_banner();
     printf(" Type 'help' for a list of commands.\n");
 
     while (1) {
-        printf("treasure_hub> ");
+        printf(COLOR_MAGENTA "treasure_hub> " COLOR_RESET);
         fflush(stdout);
 
         // Read user input
         if (fgets(input, sizeof(input), stdin) == NULL) {
-            printf("Error reading input.\n");
+            printf(COLOR_RED "Error reading input.\n" COLOR_RESET);
             continue;
         }
 
@@ -153,7 +177,8 @@ int main() {
         // Handle commands
         if (strcmp(input, "start_monitor") == 0) {
             if (monitor_pid > 0) {
-                printf("\nMonitor is already running (PID %d).\n", monitor_pid);
+                printf(COLOR_BLUE "Monitor is already running (PID %d).\n" COLOR_RESET, monitor_pid);
+                //printf("\n");
             } else {
                 pid_t pid = fork();
                 if(pid < 0) {
@@ -173,7 +198,7 @@ int main() {
                 else {
                     // Parent (hub)
                     monitor_pid = pid;
-                    printf("\nMonitor started with PID %d.\n", monitor_pid);
+                    printf("Monitor started with PID %d.\nReady and waiting for signals\n", monitor_pid);
                 }
             }
         }
@@ -182,14 +207,14 @@ int main() {
             if(monitor_pid > 0){
                 kill(monitor_pid, SIGUSR1);
             }else{
-                printf("Monitor is not running.\n");
+                printf(COLOR_BLUE "Monitor is not running.\n" COLOR_RESET);
             }
         }
         
         else if (strcmp(input, "list_treasures") == 0) {
             if(monitor_pid > 0){
                 char hunt_id[256];
-                printf("Enter hunt ID: ");
+                printf(COLOR_BLUE "Enter hunt ID: " COLOR_RESET);
                 fgets(hunt_id, sizeof(hunt_id), stdin);
                 hunt_id[strcspn(hunt_id, "\n")] = '\0'; // trim newline
 
@@ -201,7 +226,7 @@ int main() {
 
                 kill(monitor_pid, SIGUSR2);
             }else{
-                printf("Monitor is not running.\n");
+                printf(COLOR_BLUE "Monitor is not running.\n" COLOR_RESET);
             }
         }
 
@@ -209,11 +234,11 @@ int main() {
             if(monitor_pid > 0){
                 char hunt_id[256], treasure_id[256];
 
-                printf("Enter hunt ID: ");
+                printf(COLOR_BLUE "Enter hunt ID: " COLOR_RESET);
                 fgets(hunt_id, sizeof(hunt_id), stdin);
                 hunt_id[strcspn(hunt_id, "\n")] = '\0'; // trim newline
 
-                printf("Enter treasure ID: ");
+                printf(COLOR_BLUE "Enter treasure ID: " COLOR_RESET);
                 fgets(treasure_id, sizeof(treasure_id), stdin);
                 treasure_id[strcspn(treasure_id, "\n")] = '\0'; // trim newline
 
@@ -223,13 +248,13 @@ int main() {
                     fclose(file);
                 }
                 else {
-                    printf("Failed to open parameter file.\n");
+                    printf(COLOR_RED "Failed to open parameter file.\n" COLOR_RESET);
                     continue;
                 }
 
                 kill(monitor_pid, SIGALRM); // Send signal to view treasure
             }else{
-                printf("Monitor is not running.\n");
+                printf(COLOR_BLUE "Monitor is not running.\n" COLOR_RESET);
             }
         }
         
@@ -245,7 +270,7 @@ int main() {
 
         else if (strcmp(input, "stop_monitor") == 0) {
             if(monitor_pid <= 0){
-                printf("Monitor is not running.\n");
+                printf(COLOR_BLUE "Monitor is not running.\n" COLOR_RESET);
             }else{
                 printf("\nStopping monitor with PID %d...\n", monitor_pid);
                 kill(monitor_pid, SIGTERM);
@@ -257,7 +282,7 @@ int main() {
 
         else if (strcmp(input, "exit") == 0) {
             if (monitor_running) {
-                printf(" Cannot exit: monitor is still running.\n");
+                printf(COLOR_RED" Cannot exit: monitor is still running.\n" COLOR_RESET);
             } else {
                 printf("Exiting... Goodbye!\n");
                 break;
@@ -266,16 +291,18 @@ int main() {
 
         else if (strcmp(input, "help") == 0) {
             printf("Available commands:\n");
-            printf("    start_monitor - Start the monitor process\n");
-            printf("    stop_monitor - Stop the monitor process\n");
-            printf("    list_hunts - List all hunts\n");
-            printf("    list_treasures - List all treasures in a hunt\n");
-            printf("    view_treasure - View a specific treasure\n");
-            printf("    exit - Exit the program\n");
+            printf(COLOR_GREEN);
+            printf("    start_monitor - Start the monitor process\n" );
+            printf("    stop_monitor - Stop the monitor process\n" );
+            printf("    list_hunts - List all hunts\n" );
+            printf("    list_treasures - List all treasures in a hunt\n" );
+            printf("    view_treasure - View a specific treasure\n" );
+            printf("    exit - Exit the program\n" );
+            printf(COLOR_RESET);
         }
 
         else {
-            printf(" Unknown command: '%s'\n", input);
+            printf(COLOR_RED" Unknown command: '%s'\n" COLOR_RESET, input);
         }
     }
 
