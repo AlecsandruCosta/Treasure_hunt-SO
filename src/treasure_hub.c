@@ -70,17 +70,21 @@ void handle_view_treasure(int sig) {
         return;
     }
 
-    char hunt_id[256];
-    if(fgets(hunt_id, sizeof(hunt_id), file)){
+    char hunt_id[256], treasure_id[256];
+    if(fgets(hunt_id, sizeof(hunt_id), file) &&
+       fgets(treasure_id, sizeof(treasure_id), file)){
         hunt_id[strcspn(hunt_id, "\n")] = '\0'; // trim newline
+        treasure_id[strcspn(treasure_id, "\n")] = '\0'; // trim newline
+
         printf("Hunt ID: %s\n", hunt_id);
+        printf("Treasure ID: %s\n", treasure_id);
 
         // Call the function to view treasure
-        int id = 1; // Example treasure ID
+        int id = atoi(treasure_id); // Example treasure ID
         view_treasure(hunt_id, id);
 
     }else{
-        printf("No hunt_id found in file.\n");
+        printf("Invalid format in monitor_command.txt.\n");
     }
     fclose(file);
 }
@@ -95,7 +99,7 @@ void handle_sigterm(int sig) {
 
 //Monitor process main loop
 void start_monitor_loop() {
-    struct sigaction sa1, sa2, sa_term;
+    struct sigaction sa1, sa2, sa_view, sa_term;
 
     sa1.sa_handler = handle_list_hunts;
     sigemptyset(&sa1.sa_mask);
@@ -107,12 +111,10 @@ void start_monitor_loop() {
     sa2.sa_flags = 0;
     sigaction(SIGUSR2, &sa2, NULL);
     
-    /*
-    sa3.sa_handler = handle_view_treasure;
-    sigemptyset(&sa3.sa_mask);
-    sa3.sa_flags = 0;
-    sigaction(SIGUSR3, &sa3, NULL);
-    */
+    sa_view.sa_handler = handle_view_treasure;
+    sigemptyset(&sa_view.sa_mask);
+    sa_view.sa_flags = 0;
+    sigaction(SIGALRM, &sa_view, NULL);
 
     sa_term.sa_handler = handle_sigterm;
     sigemptyset(&sa_term.sa_mask);
@@ -183,7 +185,7 @@ int main() {
                 printf("Monitor is not running.\n");
             }
         }
-        /*
+        
         else if (strcmp(input, "list_treasures") == 0) {
             if(monitor_pid > 0){
                 char hunt_id[256];
@@ -202,7 +204,36 @@ int main() {
                 printf("Monitor is not running.\n");
             }
         }
-        */
+
+        else if(strcmp(input, "view_treasure") == 0) {
+            if(monitor_pid > 0){
+                char hunt_id[256], treasure_id[256];
+
+                printf("Enter hunt ID: ");
+                fgets(hunt_id, sizeof(hunt_id), stdin);
+                hunt_id[strcspn(hunt_id, "\n")] = '\0'; // trim newline
+
+                printf("Enter treasure ID: ");
+                fgets(treasure_id, sizeof(treasure_id), stdin);
+                treasure_id[strcspn(treasure_id, "\n")] = '\0'; // trim newline
+
+                FILE *file = fopen(PARAM_FILE, "w");
+                if(file) {
+                    fprintf(file, "%s\n%s\n", hunt_id, treasure_id);
+                    fclose(file);
+                }
+                else {
+                    printf("Failed to open parameter file.\n");
+                    continue;
+                }
+
+                kill(monitor_pid, SIGALRM); // Send signal to view treasure
+            }else{
+                printf("Monitor is not running.\n");
+            }
+        }
+        
+        /*
         
         else if(strcmp(input, "list_treasures") == 0) {
             if(monitor_pid > 0){
@@ -210,7 +241,7 @@ int main() {
             }else{
                 printf("Monitor is not running.\n");
             }
-        }
+        }*/
 
         else if (strcmp(input, "stop_monitor") == 0) {
             if(monitor_pid <= 0){
@@ -235,11 +266,12 @@ int main() {
 
         else if (strcmp(input, "help") == 0) {
             printf("Available commands:\n");
-            printf(" start_monitor - Start the monitor process\n");
-            printf(" stop_monitor - Stop the monitor process\n");
-            printf(" list_hunts - List all hunts\n");
-            printf(" list_treasures - List all treasures in a hunt\n");
-            printf(" exit - Exit the program\n");
+            printf("    start_monitor - Start the monitor process\n");
+            printf("    stop_monitor - Stop the monitor process\n");
+            printf("    list_hunts - List all hunts\n");
+            printf("    list_treasures - List all treasures in a hunt\n");
+            printf("    view_treasure - View a specific treasure\n");
+            printf("    exit - Exit the program\n");
         }
 
         else {
