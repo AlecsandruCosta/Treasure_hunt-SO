@@ -151,6 +151,20 @@ void start_monitor_loop() {
     }
 } 
 
+// At the top of treasure_hub.c
+int pipefd[2];
+
+
+void read_monitor_output() {
+    char buffer[256];
+    ssize_t nbytes = read(pipefd[0], buffer, sizeof(buffer) - 1);
+    if (nbytes > 0) {
+        buffer[nbytes] = '\0'; // Null-terminate the string
+        printf("Monitor Output:" COLOR_GREEN "%s" COLOR_RESET, buffer);
+    } else {
+        printf(COLOR_RED "No response from monitor.\n" COLOR_RESET);
+    }
+}
 
 
 int main() {
@@ -167,7 +181,7 @@ int main() {
 
         // Read user input
         if (fgets(input, sizeof(input), stdin) == NULL) {
-            printf(COLOR_RED "Error reading input.\n" COLOR_RESET);
+            printf("Error reading input.\n");
             continue;
         }
 
@@ -180,23 +194,29 @@ int main() {
                 printf(COLOR_BLUE "Monitor is already running (PID %d).\n" COLOR_RESET, monitor_pid);
                 //printf("\n");
             } else {
+                //pid_t pid = fork();
+
+                //int pipefd[2];
+                if (pipe(pipefd) == -1) {
+                    perror(COLOR_RED "Pipe creation failed" COLOR_RESET);
+                    continue;
+                }
+
                 pid_t pid = fork();
                 if(pid < 0) {
                     perror("Fork failed");
                 }else if(pid == 0) {
-                    
+                    close(pipefd[0]); // Close read end of the pipe in the child process
+                    dup2(pipefd[1], STDOUT_FILENO); // Redirect stdout to the pipe
+                    close(pipefd[1]); // Close write end of the pipe in the child process
+
                     start_monitor_loop(); // Start the monitor loop
-                    /*
-                    // Child process: monitor
-                    printf("[Monitor process running with PID %d]\n", getpid());
-                    while(1){
-                        pause();
-                    }
                     exit(0); 
-                    */             
+                                 
                 }
                 else {
                     // Parent (hub)
+                    close(pipefd[1]); // Close write end of the pipe in the parent process
                     monitor_pid = pid;
                     printf("Monitor started with PID %d.\nReady and waiting for signals\n", monitor_pid);
                 }
@@ -206,6 +226,7 @@ int main() {
         else if (strcmp(input, "list_hunts") == 0){
             if(monitor_pid > 0){
                 kill(monitor_pid, SIGUSR1);
+                read_monitor_output();
             }else{
                 printf(COLOR_BLUE "Monitor is not running.\n" COLOR_RESET);
             }
@@ -225,6 +246,7 @@ int main() {
                 }
 
                 kill(monitor_pid, SIGUSR2);
+                read_monitor_output();
             }else{
                 printf(COLOR_BLUE "Monitor is not running.\n" COLOR_RESET);
             }
@@ -253,8 +275,65 @@ int main() {
                 }
 
                 kill(monitor_pid, SIGALRM); // Send signal to view treasure
+                read_monitor_output();
             }else{
                 printf(COLOR_BLUE "Monitor is not running.\n" COLOR_RESET);
+            }
+        }
+
+        else if(strcmp(input, "calculate_score") == 0) {
+            DIR *dir = opendir("hunts");
+            if(!dir) {
+                perror(COLOR_RED "Failed to open hunts directory" COLOR_RESET);
+                continue;
+            }
+
+            struct dirent *entry;
+            while((entry = readdir(dir)) != NULL) {
+                if(entry->d_type == DT_DIR &&
+                   strcmp(entry->d_name, ".") != 0 &&
+                   strcmp(entry->d_name, "..") != 0) {
+                    
+                    char hunt_path[256];
+                    snprintf(hunt_path, sizeof(hunt_path), "hunts/%s", entry->d_name);
+
+                    int score_pipe[2];
+                    if (pipe(score_pipe) == -1) {
+                        perror(COLOR_RED "Pipe creation failed" COLOR_RESET);
+                        continue;
+                    }
+
+                    pid_t pid = fork();
+                    if(pid < 0) {
+                        perror(COLOR_RED "Fork failed" COLOR_RESET);
+                        continue;
+                    }else if(pid == 0) {
+                        // Child process
+                        close(score_pipe[0]); // Close read end of the pipe in the child process
+                        dup2(score_pipe[1], STDOUT_FILENO); // Redirect stdout to the pipe
+                        close(score_pipe[1]); // Close write end of the pipe in the child process
+
+                        execlp("./score_calculator", "score_calculator", hunt_path, NULL);
+                        perror(COLOR_RED "execlp failed" COLOR_RESET);
+                        exit(1);
+                    }else {
+                        // Parent process
+                        close(score_pipe[1]); // Close write end of the pipe in the parent process
+
+                        char buffer[256];
+                        ssize_t nbytes = read(score_pipe[0], buffer, sizeof(buffer) - 1);
+                        if (nbytes > 0) {
+                            buffer[nbytes] = '\0'; // Null-terminate the string
+                            printf(COLOR_YELLOW "Scores for hunt: %s\n" COLOR_RESET, entry->d_name);
+                            printf("%s", buffer);
+                        } else {
+                            printf(COLOR_RED "No response from score calculator.\n" COLOR_RESET);
+                        }
+                        close(score_pipe[0]); // Close read end of the pipe in the parent process
+                        wair(NULL); // Wait for child process to finish
+                    }
+
+                }
             }
         }
         
