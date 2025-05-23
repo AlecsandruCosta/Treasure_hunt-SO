@@ -61,7 +61,9 @@ int main(int argc, char *argv[])
 
     while ((entry = readdir(dir)) != NULL)
     {
-        snprintf(filepath, sizeof(filepath), "%s/%s", hunt_path, entry->d_name);
+        // Ensure no buffer overflow: leave space for '/', null terminator, and hunt_path
+        int max_name = sizeof(filepath) - strlen(hunt_path) - 2; // -2 for '/' and '\0'
+        snprintf(filepath, sizeof(filepath), "%s/%.*s", hunt_path, max_name, entry->d_name);
         struct stat st;
 
         if (stat(filepath, &st) == 0 && S_ISREG(st.st_mode))
@@ -78,7 +80,7 @@ int main(int argc, char *argv[])
             while (fread(&treasure, sizeof(Treasure), 1, file) == 1)
             {
                 add_score(treasure.username, treasure.value);
-                printf("Read from %s: user=%s, value=%d\n", filepath, treasure.username, treasure.value);
+                //printf("Read from %s: user=%s, value=%d\n", filepath, treasure.username, treasure.value);
 
             }
             fclose(file);
