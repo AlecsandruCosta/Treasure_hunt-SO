@@ -7,14 +7,13 @@
 
 #define MAX_USERS 100
 
-typedef struct
-{
+typedef struct {
     int id;
     char username[50];
     float latitude, longitude;
     char clue[250];
     int value;
-} Treasure;
+}Treasure;
 
 typedef struct
 {
@@ -76,9 +75,11 @@ int main(int argc, char *argv[])
             }
 
             Treasure treasure;
-            if (fread(&treasure, sizeof(Treasure), 1, file) == 1)
+            while (fread(&treasure, sizeof(Treasure), 1, file) == 1)
             {
                 add_score(treasure.username, treasure.value);
+                printf("Read from %s: user=%s, value=%d\n", filepath, treasure.username, treasure.value);
+
             }
             fclose(file);
         }
