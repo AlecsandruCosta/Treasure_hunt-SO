@@ -21,6 +21,7 @@
 #define COLOR_BLUE "\x1b[34m"
 #define COLOR_MAGENTA "\x1b[35m"
 #define COLOR_CYAN "\x1b[36m"
+#define COLOR_UNDERLINE "\x1b[4m"
 #define COLOR_RESET "\x1b[0m"
 
 #define MAX_INPUT_SIZE 256
@@ -231,7 +232,7 @@ int main()
 
     // printf(" Welcome to Treasure Hub \n");
     print_hub_banner();
-    printf(" Type 'help' for a list of commands.\n");
+    printf(COLOR_BLUE" Type 'help' for a list of commands.\n" COLOR_RESET);
 
     struct sigaction sa_ready;
     sa_ready.sa_handler = monitor_ready_handler;
@@ -253,6 +254,11 @@ int main()
 
         // Remove newline character
         input[strcspn(input, "\n")] = '\0';
+
+        // Skip empty input
+        if (input[0] == '\0') {
+            continue;
+        }
 
         // Handle commands
         if (strcmp(input, "start_monitor") == 0)
@@ -290,7 +296,7 @@ int main()
                     int flags = fcntl(pipefd[0], F_GETFL, 0);
                     fcntl(pipefd[0], F_SETFL, flags | O_NONBLOCK);
                     monitor_pid = pid;
-                    printf("Monitor started with PID %d.\nReady and waiting for signals\n", monitor_pid);
+                    printf(COLOR_BLUE "Monitor started with PID %d.\nReady and waiting for signals\n" COLOR_RESET, monitor_pid );
                 }
             }
         }
@@ -385,85 +391,93 @@ int main()
 
         else if (strcmp(input, "calculate_score") == 0)
         {
-            DIR *dir = opendir("hunts");
-            if (!dir)
+            if (monitor_pid > 0)
             {
-                perror(COLOR_RED "Failed to open hunts directory" COLOR_RESET);
-                continue;
-            }
+                DIR *dir = opendir("hunts");
+                if (!dir)
+                {
+                    perror(COLOR_RED "Failed to open hunts directory" COLOR_RESET);
+                    continue;
+                }
 
-            struct dirent *entry;
-            while ((entry = readdir(dir)) != NULL)
-            {
-                if (entry->d_type == DT_DIR &&
-                    strcmp(entry->d_name, ".") != 0 && // skip current directory
-                    strcmp(entry->d_name, "..") != 0)
-                { // skip parent directory
+                struct dirent *entry;
+                while ((entry = readdir(dir)) != NULL)
+                {
+                    if (entry->d_type == DT_DIR &&
+                        strcmp(entry->d_name, ".") != 0 && // skip current directory
+                        strcmp(entry->d_name, "..") != 0)
+                    { // skip parent directory
 
-                    char hunt_path[256];
-                    snprintf(hunt_path, sizeof(hunt_path), "hunts/%.249s", entry->d_name);
+                        char hunt_path[256];
+                        snprintf(hunt_path, sizeof(hunt_path), "hunts/%.249s", entry->d_name);
 
-                    // check if the directory contains any files (treasures)
-                    DIR *hunt_dir = opendir(hunt_path);
-                    int has_treasure = 0;
-                    if (hunt_dir)
-                    {
-                        struct dirent *e;
-                        while ((e = readdir(hunt_dir)) != NULL)
+                        // check if the directory contains any files (treasures)
+                        DIR *hunt_dir = opendir(hunt_path);
+                        int has_treasure = 0;
+                        if (hunt_dir)
                         {
-                            if (e->d_type == DT_REG)
+                            struct dirent *e;
+                            while ((e = readdir(hunt_dir)) != NULL)
                             {
-                                has_treasure = 1;
-                                break;
+                                if (e->d_type == DT_REG)
+                                {
+                                    has_treasure = 1;
+                                    break;
+                                }
                             }
+                            closedir(hunt_dir);
                         }
-                        closedir(hunt_dir);
-                    }
-                    if (!has_treasure)
-                    {
-                        // Skip empty hunt directories
-                        continue;
-                    }
-
-                    int score_pipe[2];
-                    if (pipe(score_pipe) == -1)
-                    {
-                        perror(COLOR_RED "Pipe creation failed" COLOR_RESET);
-                        continue;
-                    }
-
-                    pid_t pid = fork();
-                    if (pid < 0)
-                    {
-                        perror(COLOR_RED "Fork failed" COLOR_RESET);
-                        continue;
-                    }
-                    else if (pid == 0)
-                    {
-                        // Child process
-                        close(score_pipe[0]);
-                        dup2(score_pipe[1], STDOUT_FILENO);
-                        close(score_pipe[1]);
-                        execlp("./score_calculator", "score_calculator", hunt_path, NULL);
-                        perror(COLOR_RED "execlp failed" COLOR_RESET);
-                        exit(1);
-                    }
-                    else
-                    {
-                        // Parent process
-                        close(score_pipe[1]);
-                        char buffer[256];
-                        ssize_t nbytes = read(score_pipe[0], buffer, sizeof(buffer) - 1);
-                        if (nbytes > 0)
+                        if (!has_treasure)
                         {
-                            buffer[nbytes] = '\0';
-                            printf(COLOR_YELLOW "\nScores for hunt: %s\n" COLOR_RESET, entry->d_name);
-                            printf("%s", buffer);
+                            // Skip empty hunt directories
+                            continue;
                         }
-                        close(score_pipe[0]);
-                        wait(NULL);
+
+                        int score_pipe[2];
+                        if (pipe(score_pipe) == -1)
+                        {
+                            perror(COLOR_RED "Pipe creation failed" COLOR_RESET);
+                            continue;
+                        }
+
+                        pid_t pid = fork();
+                        if (pid < 0)
+                        {
+                            perror(COLOR_RED "Fork failed" COLOR_RESET);
+                            continue;
+                        }
+                        else if (pid == 0)
+                        {
+                            // Child process
+                            close(score_pipe[0]);
+                            dup2(score_pipe[1], STDOUT_FILENO);
+                            close(score_pipe[1]);
+                            execlp("./score_calculator", "score_calculator", hunt_path, NULL);
+                            perror(COLOR_RED "execlp failed" COLOR_RESET);
+                            exit(1);
+                        }
+                        else
+                        {
+                            // Parent process
+                            close(score_pipe[1]);
+                            char buffer[256];
+                            ssize_t nbytes = read(score_pipe[0], buffer, sizeof(buffer) - 1);
+                            if (nbytes > 0)
+                            {
+                                buffer[nbytes] = '\0';
+                                printf(COLOR_YELLOW "\nScores for hunt: %s\n" COLOR_RESET, entry->d_name);
+                                printf("%s", buffer);
+                            }
+                            close(score_pipe[0]);
+                            wait(NULL);
+                        }
                     }
                 }
+                closedir(dir);
+            }
+            else
+            {
+                printf(COLOR_BLUE "Monitor is not running.\n" COLOR_RESET);
             }
         }
 
@@ -475,7 +489,7 @@ int main()
             }
             else
             {
-                printf("\nStopping monitor with PID %d...\n", monitor_pid);
+                printf(COLOR_BLUE "\nStopping monitor with PID %d...\n" COLOR_RESET, monitor_pid);
                 kill(monitor_pid, SIGTERM);
                 waitpid(monitor_pid, NULL, 0);
                 monitor_pid = -1;
@@ -484,7 +498,7 @@ int main()
                     close(pipefd[0]);
                     pipefd[0] = -1;
                 }
-                printf("Monitor stopped.\n");
+                printf(COLOR_BLUE "Monitor stopped.\n" COLOR_RESET);
             }
         }
 
@@ -496,7 +510,7 @@ int main()
             }
             else
             {
-                printf("Exiting... Goodbye!\n");
+                printf(COLOR_BLUE "Exiting... Goodbye!\n" COLOR_RESET);
                 break;
             }
         }
